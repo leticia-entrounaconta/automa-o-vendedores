@@ -61,23 +61,19 @@ def clean_excel(file_path):
     try:
         df = pd.read_excel(file_path)
 
-        # Remove espaços dos nomes das colunas
         df.columns = df.columns.astype(str).str.strip()
 
-        # Coluna Z = índice 25
-        coluna_z = df.columns[25]
+        coluna_vendedor = "GrupoVendedor"
 
-        # Normaliza os valores da coluna Z
-        df[coluna_z] = (
-            df[coluna_z]
+        df[coluna_vendedor] = (
+            df[coluna_vendedor]
             .astype(str)
             .str.strip()
             .str.lower()
         )
 
-        # Remove os vendedores indesejados
         df = df[
-            ~df[coluna_z].isin(VENDEDORES_REMOVER)
+            ~df[coluna_vendedor].isin(VENDEDORES_REMOVER)
         ]
 
         file_name = "Automacao"
