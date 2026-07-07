@@ -1,0 +1,32 @@
+services:
+  rpa:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: rpa-template:latest
+    restart: no
+    env_file:
+      - .env
+    environment:
+      TZ: ${TZ:-America/Sao_Paulo}
+      NOVNC_PORT: ${NOVNC_PORT:-7900}
+      VNC_PORT: ${VNC_PORT:-5900}
+      SCREEN_RESOLUTION: ${SCREEN_RESOLUTION:-1920x1080x24}
+      LOGS_DIR: ${LOGS_DIR:-/app/logs}
+      ENABLE_VNC: ${ENABLE_VNC:-true}
+      APP_MODULE: ${APP_MODULE:-app.main}
+    ports:
+      - "${NOVNC_PORT_HOST:-7900}:${NOVNC_PORT:-7900}"
+    volumes:
+      - ${LOGS_DIR_HOST:-./logs}:/app/logs
+    shm_size: 1g
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "if [ \"${ENABLE_VNC:-true}\" != \"false\" ]; then curl -f http://localhost:${NOVNC_PORT:-7900}; else python -c 'print(\"ok\")'; fi"
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s

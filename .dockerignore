@@ -1,0 +1,25 @@
+# Paths ignored during docker build
+.git
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.venv
+envs
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+logs
+temp
+.env
+.env.*
+*.log
+
+# Keep docker assets, source, docs
+!Dockerfile
+!docker-compose.yml
+!docker/
+!app/
+!requirements.txt
+!.env.example
+!README.md

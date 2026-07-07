@@ -1,0 +1,8 @@
+holidays
+selenium
+requests
+python-dotenv
+python-dateutil
+pandas
+openpyxl
+webdriver-manager
