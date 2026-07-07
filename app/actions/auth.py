@@ -24,22 +24,6 @@ if not all([login, login_2tech, password, password_2tech]):
 def make_login():
     wait.until(
         EC.visibility_of_element_located((By.ID, "txtUsuario"))
-    ).send_keys(login)
-
-    wait.until(
-        EC.visibility_of_element_located((By.ID, "txtSenha"))
-    ).send_keys(password)
-
-    wait.until(
-        EC.element_to_be_clickable((By.ID, "btnLogin"))
-    ).click()
-
-    sleep(2)
-
-
-def make_login_2tech():
-    wait.until(
-        EC.visibility_of_element_located((By.ID, "txtUsuario"))
     ).send_keys(login_2tech)
 
     wait.until(
@@ -49,5 +33,15 @@ def make_login_2tech():
     wait.until(
         EC.element_to_be_clickable((By.ID, "btnLogin"))
     ).click()
+
+    sleep(2)
+
+
+def make_login_2tech():
+    # login 2tech
+    wait.until(EC.visibility_of_element_located((By.ID, "txtUsuario"))).send_keys(login_2tech)
+    driver.find_element(By.ID, "txtSenha").send_keys(password_2tech)
+ 
+    driver.find_element(By.ID, "btnLogin").click()
 
     sleep(2)

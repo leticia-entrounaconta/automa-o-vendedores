@@ -36,9 +36,10 @@ def get_chrome_options() -> Options:
         options.add_argument("--headless=new")
         options.add_argument("--window-size=1280,720")
 
-    chrome_binary = os.getenv("CHROME_BINARY")
-    if chrome_binary:
-        options.binary_location = chrome_binary
+
+    # chrome_binary = os.getenv("CHROME_BINARY")
+    # if chrome_binary:
+    #     options.binary_location = chrome_binary
 
     return options
 
