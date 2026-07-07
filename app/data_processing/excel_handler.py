@@ -1,49 +1,93 @@
 import os
 import logging
 from time import time, sleep
-from app.settings.config import DOWNLOAD_PATH
-from datetime import datetime
 
-def wait_download(timeout = 10):
+import pandas as pd
+
+from app.settings.config import DOWNLOAD_PATH
+
+
+VENDEDORES_REMOVER = [
+    "camila kawai",
+    "enc-colaboradores",
+    "enc+",
+    "improdutivo",
+    "não identificado",
+    "sem atuação",
+]
+
+
+def wait_download(timeout=10):
     loop = True
     start_time = time()
+
     while loop:
         elapsed_time = time() - start_time
+
         try:
-            response = check_download(os.path.join(DOWNLOAD_PATH, os.listdir(DOWNLOAD_PATH)[0]))
+            response = check_download(
+                os.path.join(DOWNLOAD_PATH, os.listdir(DOWNLOAD_PATH)[0])
+            )
             loop = not response
+
         except IndexError:
             if elapsed_time > timeout:
                 break
             else:
                 sleep(0.5)
-                pass
+
     if loop:
-        logging.warning(f'Download not completed within {timeout} seconds')
+        logging.warning(f"Download not completed within {timeout} seconds")
         return None
-    else:
-        logging.info(f'Download completed, file found in {DOWNLOAD_PATH}')
-        return os.path.join(DOWNLOAD_PATH, os.listdir(DOWNLOAD_PATH)[0])
+
+    logging.info(f"Download completed, file found in {DOWNLOAD_PATH}")
+    return os.path.join(DOWNLOAD_PATH, os.listdir(DOWNLOAD_PATH)[0])
+
 
 def check_download(file):
-    if os.path.exists(file) and not ".crdownload" in file and not ".tmp" in file and os.path.getsize(file) > 0:
-        logging.info(f'{file}')
+    if (
+        os.path.exists(file)
+        and ".crdownload" not in file
+        and ".tmp" not in file
+        and os.path.getsize(file) > 0
+    ):
+        logging.info(f"{file}")
         return True
-    else:
-        return False
+
+    return False
+
 
 def clean_excel(file_path):
-    import pandas as pd
     try:
         df = pd.read_excel(file_path)
-        # 
-        # 
-        #                 
-        file_name='Automacao'
+
+        # Remove espaços dos nomes das colunas
+        df.columns = df.columns.astype(str).str.strip()
+
+        # Coluna Z = índice 25
+        coluna_z = df.columns[25]
+
+        # Normaliza os valores da coluna Z
+        df[coluna_z] = (
+            df[coluna_z]
+            .astype(str)
+            .str.strip()
+            .str.lower()
+        )
+
+        # Remove os vendedores indesejados
+        df = df[
+            ~df[coluna_z].isin(VENDEDORES_REMOVER)
+        ]
+
+        file_name = "Automacao"
         output_path = os.path.join(DOWNLOAD_PATH, f"{file_name}.xlsx")
+
         df.to_excel(output_path, index=False)
-        logging.info(f'Cleaned Excel file saved to {output_path}')
+
+        logging.info(f"Cleaned Excel file saved to {output_path}")
         return output_path
+
     except Exception as e:
-        logging.error(f'Error cleaning Excel file: {e}')
+        logging.error(f"Error cleaning Excel file: {e}")
         return None
