@@ -50,22 +50,15 @@ def main():
 
     try:
         # Sistema
-        logger.info("Acessando sistema 2Tech")
         navigate_to_system()
-
         # Login
-        logger.info("Realizando login na 2Tech")
         make_login_2tech()
 
         # Navegação
-        logger.info("Navegando para Cadastros")
         navigate_to_cadastros()
-
-        logger.info("Navegando para Vendedores")
         navigate_to_vendedores()
 
         # Exportação
-        logger.info("Filtrando vendedores ativos e exportando relatório")
         file_path = export_vendedores_ativos()
 
         if file_path is None:

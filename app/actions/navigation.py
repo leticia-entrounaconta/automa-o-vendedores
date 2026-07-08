@@ -49,9 +49,14 @@ def switch_to_window(index: int = 0):
 def navigate_to_cadastros():
     logger.info("Navegando para Cadastros")
 
-    wait.until(
-        EC.element_to_be_clickable((By.ID, "menu4"))
-    ).click()
+    cadastros = wait.until(
+        EC.presence_of_element_located((By.ID, "menu4"))
+    )
+
+    driver.execute_script(
+        "arguments[0].click();",
+        cadastros,
+    )
 
     sleep(1)
 
@@ -59,15 +64,29 @@ def navigate_to_cadastros():
 def navigate_to_vendedores():
     logger.info("Navegando para Vendedores")
 
-    wait.until(
-        EC.element_to_be_clickable(
-            (By.XPATH, "//a[@href='BuscarVendedor.asp' and normalize-space()='Vendedores']")
+    vendedores = wait.until(
+        EC.presence_of_element_located(
+            (
+                By.XPATH,
+                "//a[contains(@href, 'BuscarVendedor.asp') and contains(normalize-space(), 'Vendedores')]",
+            )
         )
-    ).click()
+    )
+
+    driver.execute_script(
+        "arguments[0].scrollIntoView({block:'center'});",
+        vendedores,
+    )
+
+    sleep(0.5)
+
+    driver.execute_script(
+        "arguments[0].click();",
+        vendedores,
+    )
 
     sleep(2)
 
-##
 
 def return_to_previous_page():
     logger.info("Retornando para pagina anterior")
