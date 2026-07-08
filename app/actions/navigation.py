@@ -50,9 +50,7 @@ def navigate_to_cadastros():
     logger.info("Navegando para Cadastros")
 
     wait.until(
-        EC.element_to_be_clickable(
-            (By.XPATH, "//*[contains(normalize-space(), 'Cadastros')]")
-        )
+        EC.element_to_be_clickable((By.ID, "menu4"))
     ).click()
 
     sleep(1)
@@ -63,12 +61,13 @@ def navigate_to_vendedores():
 
     wait.until(
         EC.element_to_be_clickable(
-            (By.XPATH, "//*[contains(normalize-space(), 'Vendedores')]")
+            (By.XPATH, "//a[@href='BuscarVendedor.asp' and normalize-space()='Vendedores']")
         )
     ).click()
 
     sleep(2)
 
+##
 
 def return_to_previous_page():
     logger.info("Retornando para pagina anterior")
