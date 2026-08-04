@@ -1,10 +1,12 @@
-import os
 import logging
-from time import time, sleep
+from pathlib import Path
 
 import pandas as pd
 
-from app.settings.config import DOWNLOAD_PATH
+from app.browser.downloads import aguardar_novo_download, arquivos_atuais, validar_download_excel
+from app.settings.config import DOWNLOAD_DIR, WAIT_DOWNLOAD
+from app.validations.files import garantir_dataframe_nao_vazio
+from app.data_processing.export_handler import exportar_excel_atomico
 
 
 VENDEDORES_REMOVER = [
@@ -17,110 +19,39 @@ VENDEDORES_REMOVER = [
 ]
 
 
-def wait_download(timeout=60, extension=".xlsx"):
-    start_time = time()
-    arquivos_antes = set(os.listdir(DOWNLOAD_PATH))
-
-    while time() - start_time < timeout:
-        arquivos_agora = set(os.listdir(DOWNLOAD_PATH))
-        novos_arquivos = arquivos_agora - arquivos_antes
-
-        arquivos_validos = [
-            os.path.join(DOWNLOAD_PATH, arquivo)
-            for arquivo in novos_arquivos
-            if arquivo.endswith(extension)
-            and not arquivo.endswith(".crdownload")
-            and not arquivo.endswith(".tmp")
-        ]
-
-        if arquivos_validos:
-            arquivo_mais_recente = max(arquivos_validos, key=os.path.getctime)
-
-            if check_download(arquivo_mais_recente):
-                logging.info(f"Download completed: {arquivo_mais_recente}")
-                return arquivo_mais_recente
-
-        sleep(0.5)
-
-    logging.warning(f"Download not completed within {timeout} seconds")
-    return None
+def snapshot_downloads(download_dir: Path = DOWNLOAD_DIR) -> set[Path]:
+    """Compatibility wrapper for the centralized download snapshot."""
+    return arquivos_atuais(download_dir)
 
 
-def check_download(file_path):
-    if (
-        os.path.exists(file_path)
-        and not file_path.endswith(".crdownload")
-        and not file_path.endswith(".tmp")
-        and os.path.getsize(file_path) > 0
-        and _file_is_stable(file_path)
-    ):
-        return True
-
-    return False
+def wait_download(
+    arquivos_antes: set[Path] | None = None,
+    timeout: int = WAIT_DOWNLOAD,
+    extensions: tuple[str, ...] = (".xlsx", ".xls", ".csv"),
+    download_dir: Path = DOWNLOAD_DIR,
+) -> Path:
+    """Wait for a new, stable and readable spreadsheet download."""
+    previous_files = arquivos_antes if arquivos_antes is not None else snapshot_downloads(download_dir)
+    return aguardar_novo_download(download_dir, previous_files, timeout, extensions)
 
 
-def _file_is_stable(file_path, checks=3, interval=0.5):
-    previous_size = -1
-
-    for _ in range(checks):
-        if not os.path.exists(file_path):
-            return False
-
-        current_size = os.path.getsize(file_path)
-
-        if current_size == 0:
-            return False
-
-        if current_size == previous_size:
-            return True
-
-        previous_size = current_size
-        sleep(interval)
-
-    return True
-
-
-def clean_excel(file_path):
+def check_download(file_path: Path) -> bool:
     try:
-        df = pd.read_excel(file_path)
+        validar_download_excel(file_path)
+        return True
+    except Exception:
+        return False
 
-        if df.empty:
-            logging.error("A planilha está vazia.")
-            return None
 
-        df.columns = df.columns.astype(str).str.strip()
+def save_non_empty_excel(dataframe: pd.DataFrame, output_path: Path, contexto: str) -> Path:
+    """Wrapper legado para a exportação atômica centralizada."""
+    # Mantém a exceção pública anterior para os chamadores e testes existentes.
+    garantir_dataframe_nao_vazio(dataframe, contexto)
+    return exportar_excel_atomico(dataframe, output_path, contexto)
 
-        required_columns = ["GrupoVendedor"]
 
-        missing_columns = [
-            column for column in required_columns
-            if column not in df.columns
-        ]
+def clean_excel(file_path: str | Path) -> Path:
+    """Compatibility wrapper for the former vendor-cleaning entry point."""
+    from app.data_processing.vendedores_handler import tratar_vendedores
 
-        if missing_columns:
-            logging.error(f"Colunas obrigatórias não encontradas: {missing_columns}")
-            logging.error(f"Colunas disponíveis: {list(df.columns)}")
-            return None
-
-        coluna_vendedor = "GrupoVendedor"
-
-        df[coluna_vendedor] = (
-            df[coluna_vendedor]
-            .astype(str)
-            .str.strip()
-            .str.lower()
-        )
-
-        df = df[
-            ~df[coluna_vendedor].isin(VENDEDORES_REMOVER)
-        ]
-
-        output_path = os.path.join(DOWNLOAD_PATH, "Automacao.xlsx")
-        df.to_excel(output_path, index=False)
-
-        logging.info(f"Cleaned Excel file saved to {output_path}")
-        return output_path
-
-    except Exception as e:
-        logging.error(f"Error cleaning Excel file: {e}")
-        return None
+    return tratar_vendedores(Path(file_path))

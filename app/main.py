@@ -1,90 +1,225 @@
-"""RPA Template — Main entry point.
-
-This module demonstrates the standard RPA execution pattern:
-1. Configure logging
-2. Initialize WebDriver
-3. Execute automation steps
-4. Handle errors
-5. Clean up WebDriver resources
-
-Customize the main() function with your automation logic.
-"""
-
-"""RPA Template — Main entry point."""
-
 import logging
-from time import time, strftime, gmtime
+import os
+from time import gmtime, strftime, time
 
-from app.settings.driver_settings import driver
-from app.settings.logging_config import configure_logging
-from app.utils.colors import TextColor, reset
-
-# Login
 from app.actions.auth import make_login_2tech
-
-# Navegação
+from app.browser.exceptions import AutomationError
 from app.actions.navigation import (
-    navigate_to_system,
     navigate_to_cadastros,
+    navigate_to_system,
     navigate_to_vendedores,
 )
-
-# Interações da tela de vendedores
-from app.actions.element_interaction import export_vendedores_ativos
-
-# Tratamento do Excel
-from app.data_processing.excel_handler import clean_excel
+from app.actions.producao import exportar_producao
+from app.actions.vendedores import exportar_vendedores_ativos
+from app.data_processing.cruzamento_handler import (
+    cruzar_vendedores_producao,
+)
+from app.data_processing.producao_handler import tratar_producao
+from app.data_processing.vendedores_handler import tratar_vendedores
+from app.settings.config import get_periodo_producao
+from app.settings.driver_settings import driver
+from app.settings.logging_config import configure_logging
+from app.validations.files import (
+    validar_arquivo_producao,
+    validar_arquivo_vendedores,
+)
 
 
 configure_logging()
 
-for noisy_logger in ("selenium", "urllib3", "requests"):
+for noisy_logger in (
+    "selenium",
+    "urllib3",
+    "requests",
+):
     logging.getLogger(noisy_logger).setLevel(logging.WARNING)
 
 logger = logging.getLogger("rpa_main")
 
 
-def main():
+def obter_booleano_env(
+    nome: str,
+    padrao: bool = False,
+) -> bool:
+    """Converte uma variável de ambiente para booleano."""
+
+    valor_padrao = "true" if padrao else "false"
+
+    valor = os.getenv(
+        nome,
+        valor_padrao,
+    ).strip().lower()
+
+    return valor in {
+        "1",
+        "true",
+        "sim",
+        "yes",
+        "on",
+    }
+
+
+def executar_automacao() -> None:
+    """Executa o fluxo de vendedores e produção na mesma sessão da 2Tech."""
+
     start_time = time()
-    logger.info(f"{TextColor.green}Inicio da execucao do RPA...{reset}")
+    etapa = "inicialização"
+    vendedores_count = 0
+    producao_count = 0
+    vendedores = None
+    producao = None
+    resultado = None
+    status = "falha"
+
+    logger.info(
+        "Início da automação de vendedores e produção"
+    )
 
     try:
-        # Sistema
+        etapa = "login"
         navigate_to_system()
-        # Login
         make_login_2tech()
 
-        # Navegação
+        etapa = "exportação de vendedores"
+        logger.info(
+            "Iniciando coleta de vendedores ativos"
+        )
+
         navigate_to_cadastros()
         navigate_to_vendedores()
 
-        # Exportação
-        file_path = export_vendedores_ativos()
+        vendedores_bruto = exportar_vendedores_ativos()
 
-        if file_path is None:
-            logger.warning("Nenhum arquivo foi exportado.")
+        vendedores = tratar_vendedores(
+            vendedores_bruto
+        )
+
+        vendedores_count = validar_arquivo_vendedores(
+            vendedores
+        )
+
+        logger.info(
+            "Vendedores ativos: %d | arquivo: %s",
+            vendedores_count,
+            vendedores,
+        )
+
+        # Produção pode ficar desabilitada até o relatório correto ser configurado.
+        producao_habilitada = obter_booleano_env(
+            "PRODUCAO_ENABLED",
+            padrao=False,
+        )
+
+        if not producao_habilitada:
+            logger.warning(
+                "Rotina de produção desabilitada. "
+                "Somente o relatório de vendedores foi processado."
+            )
+            status = "sucesso parcial"
             return
 
-        # Limpeza da planilha
-        logger.info("Limpando planilha exportada")
-        clean_file = clean_excel(file_path)
+        etapa = "exportação da produção"
+        logger.info(
+            "Iniciando coleta do relatório de produção"
+        )
 
-        if clean_file is None:
-            logger.warning("Falha ao limpar planilha.")
-            return
+        data_inicial, data_final = get_periodo_producao()
 
-        logger.info("Planilha final gerada em: %s", clean_file)
+        logger.info(
+            "Período da produção: %s até %s",
+            data_inicial,
+            data_final,
+        )
 
-    except Exception as error:
-        logger.exception("Erro durante execucao: %s", error)
+        producao_bruta = exportar_producao(
+            data_inicial=data_inicial,
+            data_final=data_final,
+        )
+
+        producao = tratar_producao(
+            producao_bruta
+        )
+
+        producao_count = validar_arquivo_producao(
+            producao
+        )
+
+        logger.info(
+            "Registros de produção: %d | arquivo: %s",
+            producao_count,
+            producao,
+        )
+
+        etapa = "cruzamento"
+        logger.info(
+            "Iniciando cruzamento entre vendedores e produção"
+        )
+
+        resultado = cruzar_vendedores_producao(
+            vendedores,
+            producao,
+        )
+
+        logger.info(
+            "Arquivo final de parceiros classificados: %s",
+            resultado,
+        )
+
+        logger.info(
+            "Automação concluída com sucesso"
+        )
+        status = "sucesso"
+
+    except AutomationError:
+        logger.exception("Falha de automação | etapa=%s", etapa)
+        raise
+    except Exception:
+        logger.exception(
+            "Falha inesperada | etapa=%s",
+            etapa,
+        )
         raise
 
     finally:
-        duration = strftime("%H:%M:%S", gmtime(time() - start_time))
-        logger.info(f"{TextColor.green}Execucao finalizada em {duration}{reset}")
+        duration = strftime(
+            "%H:%M:%S",
+            gmtime(time() - start_time),
+        )
 
-        driver.quit()
-        logger.info("Driver finalizado.")
+        logger.info(
+            "Execução finalizada em %s",
+            duration,
+        )
+        logger.info(
+            "Resumo final | status=%s | vendedores=%d | produções=%d | "
+            "arquivo_vendedores=%s | arquivo_producao=%s | resultado=%s | tempo=%s",
+            status,
+            vendedores_count,
+            producao_count,
+            vendedores,
+            producao,
+            resultado,
+            duration,
+        )
+
+        if driver is not None:
+            try:
+                driver.quit()
+
+                logger.info(
+                    "Driver finalizado."
+                )
+
+            except Exception:
+                logger.exception(
+                    "Erro ao finalizar o driver."
+                )
+
+
+def main() -> None:
+    """Ponto de entrada da aplicação."""
+
+    executar_automacao()
 
 
 if __name__ == "__main__":

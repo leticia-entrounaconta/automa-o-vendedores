@@ -27,7 +27,7 @@ def handle_selenium_exceptions(func):
             ElementClickInterceptedException,
         ) as e:
             _log_exception(e)
-            return None
+            raise
 
     return wrapper
 

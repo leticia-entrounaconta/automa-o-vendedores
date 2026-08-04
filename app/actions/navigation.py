@@ -1,15 +1,14 @@
 import logging
 from functools import wraps
-from time import sleep
 
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.common.exceptions import ElementClickInterceptedException
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
 from app.settings.driver_settings import driver, wait
-
-
-BASE_URL = "https://app1.gerencialcredito.com.br/Entrounaconta/"
-BASE_URL_2TECH = "https://app1.gerencialcredito.com.br/Entrounaconta/"
+from app.settings.config import BASE_URL, BASE_URL_2TECH
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +32,8 @@ def navigate_to(url: str):
 
 def navigate_to_system():
     logger.info("Navegando para sistema 2Tech")
+    if not BASE_URL_2TECH:
+        raise RuntimeError("Configure BASE_URL_2TECH ou URL_2TECH no arquivo .env.")
     driver.get(f"{BASE_URL_2TECH.rstrip('/')}/default.asp")
 
 
@@ -58,9 +59,6 @@ def navigate_to_cadastros():
         cadastros,
     )
 
-    sleep(1)
-
-
 def navigate_to_vendedores():
     logger.info("Navegando para Vendedores")
 
@@ -78,17 +76,67 @@ def navigate_to_vendedores():
         vendedores,
     )
 
-    sleep(0.5)
-
     driver.execute_script(
         "arguments[0].click();",
         vendedores,
     )
 
-    sleep(2)
+
+def navigate_to_producao_layout(driver, timeout: int = 20) -> None:
+    """Acessa Operacional > Produção - Layout na sessão autenticada da 2Tech."""
+    wait = WebDriverWait(driver, timeout)
+
+    try:
+        logger.info("Acessando o menu Operacional...")
+        menu_operacional = wait.until(
+            EC.element_to_be_clickable(
+                (By.XPATH, "//a[normalize-space(.)='Operacional']")
+            )
+        )
+        try:
+            menu_operacional.click()
+        except ElementClickInterceptedException:
+            logger.info("Menu Operacional exige hover; usando ActionChains.")
+            ActionChains(driver).move_to_element(menu_operacional).perform()
+
+        logger.info("Acessando Produção - Layout...")
+        producao_layout = wait.until(
+            EC.element_to_be_clickable(
+                (
+                    By.XPATH,
+                    "//a[normalize-space(.)='Produção - Layout' "
+                    "or normalize-space(.)='Produção – Layout']",
+                )
+            )
+        )
+        try:
+            producao_layout.click()
+        except ElementClickInterceptedException:
+            logger.info("Item Produção - Layout exige hover; usando ActionChains.")
+            menu_operacional = wait.until(
+                EC.visibility_of_element_located(
+                    (By.XPATH, "//a[normalize-space(.)='Operacional']")
+                )
+            )
+            ActionChains(driver).move_to_element(menu_operacional).perform()
+            producao_layout = wait.until(
+                EC.visibility_of_element_located(
+                    (
+                        By.XPATH,
+                        "//a[normalize-space(.)='Produção - Layout' "
+                        "or normalize-space(.)='Produção – Layout']",
+                    )
+                )
+            )
+            ActionChains(driver).move_to_element(producao_layout).click().perform()
+
+        wait.until(lambda current_driver: "Importacao_Digitacao_Proposta_Lista.asp" in current_driver.current_url)
+        logger.info("Tela Produção - Layout acessada com sucesso.")
+    except Exception:
+        logger.exception("Não foi possível acessar Operacional > Produção - Layout.")
+        raise
 
 
 def return_to_previous_page():
     logger.info("Retornando para pagina anterior")
     driver.back()
-    sleep(2)

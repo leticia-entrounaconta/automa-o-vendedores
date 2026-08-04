@@ -1,15 +1,13 @@
 import logging
-from time import sleep
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 
 from app.actions.navigation import open_browser
 from app.settings.secrets import (
-    login,
     login_2tech,
-    password,
     password_2tech,
+    validar_credenciais_2tech,
 )
 from app.settings.driver_settings import driver, wait
 
@@ -17,9 +15,9 @@ from app.settings.driver_settings import driver, wait
 logger = logging.getLogger(__name__)
 
 
-if not all([login, login_2tech, password, password_2tech]):
+if not all([login_2tech, password_2tech]):
     logger.error(
-        "Environment variables LOGIN_2TECH, LOGIN, PASSWORD_2TECH or PASSWORD are not set."
+        "As variáveis de ambiente USUARIO_2TECH/LOGIN2TECH e SENHA_2TECH/PASSWORD2TECH não foram configuradas."
     )
 
 
@@ -29,6 +27,8 @@ def make_login():
 
 
 def make_login_2tech():
+    validar_credenciais_2tech()
+
     logger.info("Preenchendo usuário")
 
     usuario = wait.until(
@@ -52,6 +52,5 @@ def make_login_2tech():
     )
     botao_login.click()
 
-    logger.info("Aguardando carregamento da página")
-
-    sleep(2)
+    wait.until(lambda current_driver: current_driver.execute_script("return document.readyState") == "complete")
+    logger.info("Login 2Tech concluído")

@@ -31,8 +31,12 @@ def get_chrome_options() -> Options:
     }
     options.add_experimental_option("prefs", prefs)
 
-    enable_vnc = os.getenv("ENABLE_VNC", "true").lower()
-    if enable_vnc in ("0", "false", "no", "off"):
+    headless = os.getenv("HEADLESS")
+    if headless is None:
+        headless = os.getenv("ENABLE_VNC", "true").lower() in ("0", "false", "no", "off")
+    else:
+        headless = headless.lower() in ("1", "true", "yes", "on")
+    if headless:
         options.add_argument("--headless=new")
         options.add_argument("--window-size=1280,720")
 
