@@ -1,76 +1,90 @@
+Atualizei o [README.md](C:/Users/Leticia%20Monteiro/Projetos/automa-vendedores-producao/README.md) e incluí `msal` nas dependências para documentar corretamente o módulo de SharePoint.
+
 # Automação de vendedores e produção 2Tech
 
-Este projeto exporta os vendedores ativos da 2Tech, coleta o relatório consolidado
-de produção, trata os dois arquivos e classifica cada vendedor ativo conforme sua
-última produção. A sessão autenticada é reutilizada nas duas coletas.
+Automação Python/Selenium que exporta os vendedores ativos e o Relatório Geral da 2Tech/Gerencial Crédito. Os arquivos são tratados, relacionados e consolidados em uma base para monitoramento comercial.
 
-## Fluxo
+## O que a automação faz
 
-1. Inicia o Chrome configurado com pasta de downloads do projeto.
-2. Acessa e autentica na 2Tech.
-3. Abre **Cadastros > Vendedores**, filtra a situação **Ativo** e exporta os dados.
-4. Trata os vendedores, removendo os grupos excluídos já definidos no código.
-5. Acessa o relatório consolidado de produção configurado, informa o período e exporta o Excel.
-6. Trata datas, valores, duplicidades e identificadores da produção.
-7. Valida os dois arquivos, faz um left join e preserva todos os vendedores ativos.
-8. Gera a classificação, grava os arquivos locais e encerra o navegador no `finally`.
+```text
+Login na 2Tech
+→ exporta vendedores ativos
+→ trata vendedores
+→ gera o Relatório Geral de produção
+→ trata a produção
+→ relaciona por código do vendedor ou CPF/CNPJ
+→ calcula indicadores
+→ gera planilha consolidada
+```
 
-Os downloads são reconhecidos somente se forem novos em relação ao instante antes
-do clique de exportação, não forem temporários e tiverem tamanho estável.
+O navegador é encerrado no bloco `finally`, mesmo quando uma etapa falha.
 
-## Base analítica consolidada
+## Arquivos gerados
 
-A planilha `parceiros_classificados.xlsx` possui uma aba `DADOS`, com uma linha por
-vendedor, e uma aba `CONTROLE`, com contagens, período, fonte e versão do
-processamento. A consolidação calcula primeira e última produção, propostas e
-valores em 30/90 dias, médias mensais de 3/6 meses, queda de 30 dias, banco/produto
-principal e a classificação técnica `ATIVO`, `ATENCAO`,
-`POTENCIAL_REATIVACAO`, `SEM_HISTORICO`, `CADASTRO_INATIVO` ou
-`DADOS_INSUFICIENTES`. Quando houver propostas sem vendedor correspondente, a
-planilha também inclui a aba `PRODUCOES_NAO_RELACIONADAS` para auditoria.
+| Arquivo | Descrição |
+| --- | --- |
+| `data/downloads/` | Exportações brutas baixadas pela 2Tech. |
+| `data/output/vendedores.xlsx` | Vendedores ativos, limpos e deduplicados. |
+| `data/output/producao.xlsx` | Produção padronizada e deduplicada por proposta. |
+| `data/output/parceiros_classificados.xlsx` | Base final para monitoramento. |
+| `logs/app.log` | Log da execução. |
+| `data/logs/erros/` | Evidências de falhas Selenium. |
 
-Os limites são configuráveis por `DIAS_ATENCAO` e `DIAS_REATIVACAO`. A prioridade
-da data analítica é configurável por `PRIORIDADE_DATA_PRODUCAO` e, por padrão, usa
-`pagamento,producao,digitacao`. Para evitar transformar uma proposta digitada em
-venda confirmada, `STATUS_PRODUCAO_VALIDA` fica vazio até a confirmação dos status
-reais exportados pela 2Tech. A limitação e a origem da data permanecem registradas
-nos dados.
+A planilha final possui:
 
-## Estrutura relevante
+- `DADOS`: uma linha por vendedor;
+- `CONTROLE`: período, contagens e versão do processamento;
+- `PRODUCOES_NAO_RELACIONADAS`: propostas sem vendedor correspondente, quando houver.
+
+## Regras de dados
+
+### Relacionamento
+
+1. Código do vendedor único;
+2. CPF/CNPJ único, somente quando o código não foi localizado;
+3. Nome nunca é usado como chave.
+
+Se código e CPF/CNPJ apontarem para parceiros diferentes, a proposta não é relacionada automaticamente e fica na aba de auditoria.
+
+### Data de referência
+
+A data analítica respeita a ordem definida por `PRIORIDADE_DATA_PRODUCAO`:
+
+```text
+pagamento → producao → digitacao
+```
+
+As três datas são preservadas. A data de digitação não é tratada como pagamento.
+
+### Classificação técnica
+
+| Condição | Classificação |
+| --- | --- |
+| Cadastro inativo | `CADASTRO_INATIVO` |
+| Sem produção relacionada | `SEM_HISTORICO` |
+| Menos de 3 meses de histórico | `DADOS_INSUFICIENTES` |
+| Menos de 15 dias sem produção | `ATIVO` |
+| Entre 15 e 29 dias | `ATENCAO` |
+| 30 dias ou mais, com histórico suficiente | `POTENCIAL_REATIVACAO` |
+
+Também são calculados primeira/última produção, propostas, valores em 30/90 dias, médias de 3/6 meses, queda percentual e banco/produto principal por valor.
+
+## Estrutura
 
 ```text
 app/
-├── actions/
-│   ├── auth.py                 # Login reutilizado da 2Tech
-│   ├── navigation.py           # Navegação existente
-│   ├── vendedores.py           # Exportação de vendedores ativos
-│   └── producao.py             # Exportação de produção (com seletores confirmáveis)
-├── data_processing/
-│   ├── vendedores_handler.py   # Tratamento de vendedores
-│   ├── producao_handler.py     # Tratamento de produção
-│   ├── consolidacao_handler.py # Relação por código/CPF e uma linha por parceiro
-│   ├── indicadores_handler.py  # Métricas, médias e qualidade do histórico
-│   ├── export_handler.py       # Escrita atômica e abas de auditoria
-│   ├── validators.py           # Validações da camada de dados
-│   ├── cruzamento_handler.py   # Ponto de compatibilidade e exportação final
-│   ├── normalization.py        # Chaves, datas, valores e status padronizados
-│   └── column_mappings.py      # Mapeamento centralizado de cabeçalhos 2Tech
-├── integrations/sharepoint.py  # Interface futura, sem credenciais
-├── browser/
-│   ├── waits.py                # Esperas explícitas por operação
-│   ├── clicks.py               # Clique com retry e fallback controlado
-│   ├── downloads.py            # Download novo, estável e validado
-│   └── exceptions.py           # Exceções específicas da automação
-├── settings/
-│   ├── config.py               # Caminhos e período configurável
-│   └── selectors.py            # Todos os locators Selenium
-└── validations/files.py        # Proteção contra arquivos vazios
+├── actions/                 # Login, navegação e exportações Selenium
+├── browser/                 # Esperas, cliques, downloads e exceções
+├── data_processing/         # Tratamento, indicadores, consolidação e exportação
+├── integrations/
+│   └── sharepoint.py        # Cliente opcional Microsoft Graph
+├── settings/                # Configurações, seletores e driver
+├── utils/                   # Evidências de falha
+├── validations/             # Validação de arquivos
+└── main.py                  # Ponto de entrada
 data/
-├── downloads/                  # Arquivos brutos temporários
+├── downloads/
 └── output/
-    ├── vendedores.xlsx
-    ├── producao.xlsx
-    └── parceiros_classificados.xlsx
 tests/
 ```
 
@@ -78,94 +92,83 @@ tests/
 
 Requer Python 3.11+ e Google Chrome compatível.
 
-```bash
+```powershell
 python -m venv .venv
-.venv\Scripts\activate
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 pip install -r requirements-dev.txt
 ```
 
-No Linux/macOS, ative o ambiente virtual com o comando equivalente ao shell usado.
-
 ## Configuração
 
-Copie o arquivo de exemplo e informe os valores no arquivo local `.env`, que não é
-versionado:
+Crie o arquivo local `.env`:
 
-```bash
-copy .env.example .env
+```powershell
+Copy-Item .env.example .env
 ```
 
-Variáveis essenciais:
-
-| Variável | Uso |
+| Variável | Finalidade |
 | --- | --- |
-| `BASE_URL_2TECH` | URL base da plataforma 2Tech. `URL_2TECH` ainda é aceito por compatibilidade. |
-| `USUARIO_2TECH` / `SENHA_2TECH` | Credenciais. Os nomes antigos `LOGIN2TECH` e `PASSWORD2TECH` também são aceitos. |
-| `DOWNLOAD_PATH` | Pasta de downloads; o padrão é `data/downloads`. |
-| `OUTPUT_PATH` | Pasta dos relatórios finais; o padrão é `data/output`. |
-| `DATA_INICIAL_PRODUCAO` | Data inicial no formato `DD/MM/AAAA`. |
-| `DATA_FINAL_PRODUCAO` | Data final no formato `DD/MM/AAAA`. |
-| `RELATORIO_GERAL_URL` | URL do Relatório Geral; por padrão, `relatorioRanking.asp`. |
-| `WAIT_PADRAO`, `WAIT_RELATORIO`, `WAIT_DOWNLOAD` | Timeouts específicos, em segundos. |
+| `BASE_URL_2TECH` | URL base do sistema. |
+| `USUARIO_2TECH`, `SENHA_2TECH` | Credenciais da 2Tech. |
+| `PRODUCAO_ENABLED` | Ativa a coleta de produção. |
+| `DATA_INICIAL_PRODUCAO`, `DATA_FINAL_PRODUCAO` | Período manual em `DD/MM/AAAA`. |
+| `PRODUCAO_DIAS_HISTORICO` | Período automático quando as datas não forem preenchidas. |
+| `DOWNLOAD_PATH`, `OUTPUT_PATH` | Pastas locais de download e saída. |
+| `DIAS_ATENCAO`, `DIAS_REATIVACAO` | Limites da classificação técnica. |
+| `PRIORIDADE_DATA_PRODUCAO` | Ordem de escolha da data analítica. |
+| `STATUS_PRODUCAO_VALIDA` | Status confirmados, separados por vírgula. |
 
-Se as datas de produção estiverem vazias, o período automático é de 1º de janeiro
-do ano atual até a data de execução.
+Não versione o `.env` e não registre senhas, tokens ou segredos no Git.
 
-## Produção: Relatório Geral
+## Relatório Geral
 
-A coleta acessa diretamente o **Relatório Geral** em `relatorioRanking.asp` e:
+A coleta:
 
-1. seleciona a aba **Datas**;
-2. preenche o período configurado;
-3. escolhe **Pagamento ao cliente** em Tipo de Data;
-4. gera o relatório e aguarda `#tableResultado`;
-5. abre **Exportar** e escolhe **Excel Resumido**;
-6. aceita somente um arquivo novo, estável e legível na pasta de downloads.
+1. Seleciona a aba **Datas**;
+2. Preenche o período;
+3. Escolhe **Pagamento ao cliente**;
+4. Gera o relatório;
+5. Aguarda a tabela;
+6. Seleciona **Exportar → Excel Resumido**;
+7. Confirma um download novo, estável e legível.
 
-O botão azul `+` não é usado no fluxo padrão: na tela ele adiciona um segundo
-período obrigatório, e não confirma o filtro já selecionado. A tela
-**Operacional > Produção - Layout** continua isolada para importação manual de
-arquivos e não participa da coleta.
+## Executar
 
-## Regras do cruzamento e classificação
+Feche os arquivos em `data/output` no Excel antes de iniciar.
 
-O cruzamento tenta, nesta ordem, uma chave única de código do vendedor/parceiro e
-CPF/CNPJ normalizado. Se as duas chaves apontarem para parceiros diferentes, a
-proposta não é relacionada e entra na aba de auditoria. Nomes não são usados como chave: podem ser duplicados,
-abreviados ou digitados de maneiras diferentes. Documentos são lidos como texto,
-e código, espaços, pontuação, caixa e acentuação são normalizados antes da
-comparação. Chaves ambíguas não são associadas por engano.
-
-| Regra técnica | Classificação |
-| --- | --- |
-| cadastro inativo | `CADASTRO_INATIVO` |
-| sem produção relacionada | `SEM_HISTORICO` |
-| menos de 3 meses disponíveis | `DADOS_INSUFICIENTES` |
-| menos de 15 dias sem produção | `ATIVO` |
-| 15 a 29 dias | `ATENCAO` |
-| 30 dias ou mais com histórico suficiente | `POTENCIAL_REATIVACAO` |
-
-As médias de 3 e 6 meses incluem meses sem produção como zero somente quando há
-histórico suficiente para o período; caso contrário ficam vazias. A queda compara
-os últimos 30 dias com os 30 dias anteriores e nunca calcula divisão por zero.
-
-## Executar e testar
-
-```bash
-pytest
+```powershell
 python -m app.main
 ```
 
-Os logs são gravados em `logs/app.log`. Em falhas Selenium, screenshot, HTML e
-diagnóstico ficam em `data/logs/erros/`, com URL, título, etapa, seletor e exceção.
-O resumo final registra status, totais, arquivos e tempo de execução.
+## Testes
 
-## Limitações conhecidas e SharePoint
+Os testes usam dados fictícios e não acessam Selenium, 2Tech nem SharePoint.
 
-- Os cabeçalhos exportados pela 2Tech devem ser conferidos na primeira coleta. Os
-  aliases ficam centralizados em `app/data_processing/column_mappings.py` para
-  ajuste sem espalhar regras pelo projeto.
-- A função `enviar_arquivo_sharepoint(caminho_local, nome_remoto)` já isola a
-  integração futura. Ela não envia nada até receber uma implementação autenticada
-  baseada em variáveis de ambiente ou identidade gerenciada.
+```powershell
+.\app\.venv\Scripts\python.exe -m pytest -q
+```
+
+## SharePoint
+
+O módulo `app/integrations/sharepoint.py` envia arquivos pelo Microsoft Graph, mas o `main.py` ainda não dispara esse envio automaticamente.
+
+Configure no `.env`:
+
+```text
+MS_TENANT_ID=
+MS_CLIENT_ID=
+MS_CLIENT_SECRET=
+SHAREPOINT_HOSTNAME=
+SHAREPOINT_SITE_PATH=
+SHAREPOINT_LIBRARY=
+SHAREPOINT_FOLDER=
+```
+
+O aplicativo registrado no Microsoft Entra ID precisa ter permissão de escrita na biblioteca de destino.
+
+## Limitações conhecidas
+
+- Cabeçalhos da 2Tech podem mudar; os aliases ficam em `app/data_processing/column_mappings.py`.
+- Produção só é confirmada por status quando `STATUS_PRODUCAO_VALIDA` for configurado.
+- O envio automático ao SharePoint deve ser habilitado no fluxo principal após confirmar pasta e permissões.
