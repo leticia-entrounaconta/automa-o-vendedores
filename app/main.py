@@ -1,5 +1,6 @@
 import logging
 import os
+from pathlib import Path
 from time import gmtime, strftime, time
 
 from app.actions.auth import make_login_2tech
@@ -16,6 +17,10 @@ from app.data_processing.cruzamento_handler import (
 )
 from app.data_processing.producao_handler import tratar_producao
 from app.data_processing.vendedores_handler import tratar_vendedores
+from app.integrations.sharepoint import (
+    enviar_arquivo_sharepoint,
+    sharepoint_habilitado,
+)
 from app.settings.config import get_periodo_producao
 from app.settings.driver_settings import driver
 from app.settings.logging_config import configure_logging
@@ -57,6 +62,14 @@ def obter_booleano_env(
         "yes",
         "on",
     }
+
+
+def enviar_arquivos_gerados_ao_sharepoint(*arquivos: Path) -> None:
+    """Envia os relatórios finais após a geração local bem-sucedida."""
+    logger.info("Iniciando envio de %d arquivos ao SharePoint", len(arquivos))
+    for arquivo in arquivos:
+        enviar_arquivo_sharepoint(arquivo, arquivo.name)
+        logger.info("Arquivo enviado ao SharePoint: %s", arquivo.name)
 
 
 def executar_automacao() -> None:
@@ -164,6 +177,12 @@ def executar_automacao() -> None:
             "Arquivo final de parceiros classificados: %s",
             resultado,
         )
+
+        if sharepoint_habilitado():
+            etapa = "envio ao SharePoint"
+            enviar_arquivos_gerados_ao_sharepoint(vendedores, producao, resultado)
+        else:
+            logger.info("Integração com SharePoint desabilitada.")
 
         logger.info(
             "Automação concluída com sucesso"

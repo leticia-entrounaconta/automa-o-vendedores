@@ -56,7 +56,12 @@ db.sqlite3-journal
 
 # Environments
 .env
+.env.local
+.env.production
 .venv
+.venv/
+__pycache__/
+*.pyc
 env/
 venv/
 ENV/

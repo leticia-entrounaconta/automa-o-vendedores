@@ -151,16 +151,21 @@ Os testes usam dados fictícios e não acessam Selenium, 2Tech nem SharePoint.
 
 ## SharePoint
 
-O módulo `app/integrations/sharepoint.py` envia arquivos pelo Microsoft Graph, mas o `main.py` ainda não dispara esse envio automaticamente.
+O módulo `app/integrations/sharepoint.py` envia arquivos pelo Microsoft Graph. O
+fluxo principal envia `vendedores.xlsx`, `producao.xlsx` e
+`parceiros_classificados.xlsx` após gerar os arquivos locais quando
+`SHAREPOINT_ENABLED=true`.
 
 Configure no `.env`:
 
 ```text
+SHAREPOINT_ENABLED=false
 MS_TENANT_ID=
 MS_CLIENT_ID=
 MS_CLIENT_SECRET=
-SHAREPOINT_HOSTNAME=
-SHAREPOINT_SITE_PATH=
+SHAREPOINT_HOSTNAME=entrounaconta.sharepoint.com
+SHAREPOINT_SITE_PATH=/sites/Tienc
+# Opcional: vazio usa a biblioteca padrão do site.
 SHAREPOINT_LIBRARY=
 SHAREPOINT_FOLDER=
 ```
@@ -171,4 +176,4 @@ O aplicativo registrado no Microsoft Entra ID precisa ter permissão de escrita 
 
 - Cabeçalhos da 2Tech podem mudar; os aliases ficam em `app/data_processing/column_mappings.py`.
 - Produção só é confirmada por status quando `STATUS_PRODUCAO_VALIDA` for configurado.
-- O envio automático ao SharePoint deve ser habilitado no fluxo principal após confirmar pasta e permissões.
+- O envio só deve ser habilitado após confirmar pasta e permissões do aplicativo no SharePoint.

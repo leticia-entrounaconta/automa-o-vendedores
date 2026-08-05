@@ -232,7 +232,7 @@ def _selecionar_pagamento_cliente(
     driver: Any,
     wait: WebDriverWait,
 ) -> None:
-    """Seleciona Pagamento ao cliente no filtro Tipo de Data."""
+    """Seleciona Pagamento ao cliente pelo componente visual da página."""
 
     locator = (
         ProducaoSelectors.RELATORIO_TIPO_DATA
@@ -313,64 +313,43 @@ def _selecionar_pagamento_cliente(
         )
 
     logger.info(
-        "produção | selecionando Pagamento ao cliente | value=%s",
+        "produção | selecionando Pagamento ao cliente pelo bootstrap-select | value=%s",
         valor_pagamento,
     )
 
-    driver.execute_script(
-        """
-        const campo = arguments[0];
-        const valor = arguments[1];
+    # A interação com a opção exibida pelo bootstrap-select aciona o evento
+    # que atualiza o modelo Vue. A alteração direta no <select> escondido era
+    # anulada pela próxima renderização e mantinha o valor anterior ("1").
+    clicar_elemento(
+        driver,
+        wait,
+        ProducaoSelectors.RELATORIO_TIPO_DATA_BUTTON,
+        "producao_abrir_tipo_data",
+    )
+    clicar_elemento(
+        driver,
+        wait,
+        ProducaoSelectors.RELATORIO_PAGAMENTO_CLIENTE_OPTION,
+        "producao_selecionar_pagamento_cliente",
+    )
 
-        campo.value = valor;
-
-        campo.dispatchEvent(
-            new Event('input', {
-                bubbles: true
-            })
-        );
-
-        campo.dispatchEvent(
-            new Event('change', {
-                bubbles: true
-            })
-        );
+    def filtro_atualizado(current_driver: Any) -> tuple[str, str] | bool:
+        current_field = current_driver.find_element(*locator)
+        current_select = Select(current_field)
+        valor = current_field.get_attribute("value")
+        texto = current_select.first_selected_option.text.strip()
 
         if (
-            window.jQuery &&
-            window.jQuery.fn &&
-            window.jQuery.fn.selectpicker
-        ) {
-            window.jQuery(campo).selectpicker(
-                'val',
-                valor
-            );
+            valor == valor_pagamento
+            and _normalizar_texto(texto)
+            in {"pagamento ao cliente", "pagamento cliente"}
+        ):
+            return valor, texto
 
-            window.jQuery(campo).selectpicker(
-                'refresh'
-            );
-        }
-        """,
-        field,
-        valor_pagamento,
-    )
+        return False
 
-    select_atualizado = Select(field)
-
-    valor_atual = field.get_attribute(
-        "value"
-    )
-
-    texto_atual = (
-        select_atualizado
-        .first_selected_option
-        .text
-        .strip()
-    )
-
-    texto_normalizado = _normalizar_texto(
-        texto_atual
-    )
+    valor_atual, texto_atual = wait.until(filtro_atualizado)
+    texto_normalizado = _normalizar_texto(texto_atual)
 
     if valor_atual != valor_pagamento:
         raise ExportError(

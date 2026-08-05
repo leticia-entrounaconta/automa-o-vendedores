@@ -44,6 +44,19 @@ class ProducaoSelectors:
         By.ID,
         "ddlTipoData",
     )
+    # O <select> é controlado pelo Vue e estilizado pelo bootstrap-select.
+    # A seleção deve ocorrer pela opção visual para disparar a atualização do
+    # modelo da página; alterar somente o <select> oculto é revertido pelo Vue.
+    RELATORIO_TIPO_DATA_BUTTON: Locator = (
+        By.CSS_SELECTOR,
+        "button[data-id='ddlTipoData']",
+    )
+    RELATORIO_PAGAMENTO_CLIENTE_OPTION: Locator = (
+        By.XPATH,
+        "//button[@data-id='ddlTipoData']"
+        "/following-sibling::div[contains(@class, 'dropdown-menu')]"
+        "//a[.//span[normalize-space()='Pagamento ao cliente']]",
+    )
     RELATORIO_GERAR: Locator = (
         By.XPATH,
         "//button[normalize-space()='Gerar relatório']",

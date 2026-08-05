@@ -23,12 +23,6 @@ password = os.getenv("PASSWORD")
 login_2tech = os.getenv("USUARIO_2TECH") or os.getenv("LOGIN2TECH")
 password_2tech = os.getenv("SENHA_2TECH") or os.getenv("PASSWORD2TECH")
 
-# Loading variable MS Graph
-app_id = os.getenv("APP_ID")
-secret_key = os.getenv("SECRET_KEY")
-tenant_id = os.getenv("TENANT_ID")
-group_id = os.getenv("GROUP_ID")
-
 webhook_url = check_env_variable("WEBHOOK_URL")
 
 
