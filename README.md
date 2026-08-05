@@ -1,4 +1,4 @@
-# Automação de vendedores e produção
+Automação de vendedores e produção
 
 Automação em Python e Selenium para coletar vendedores ativos e o Relatório Geral da 2Tech/Gerencial Crédito. As bases são tratadas, relacionadas por identificadores confiáveis e consolidadas para acompanhamento comercial.
 
