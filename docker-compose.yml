@@ -19,6 +19,8 @@ services:
       - "${NOVNC_PORT_HOST:-7900}:${NOVNC_PORT:-7900}"
     volumes:
       - ${LOGS_DIR_HOST:-./logs}:/app/logs
+      # Mantém downloads, planilhas finais e evidências fora do contêiner.
+      - ${DATA_DIR_HOST:-./data}:/app/data
     shm_size: 1g
     healthcheck:
       test:

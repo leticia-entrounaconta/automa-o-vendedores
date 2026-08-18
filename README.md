@@ -140,6 +140,42 @@ python -m app.main
 
 Quando `PRODUCAO_ENABLED=false`, somente o relatório de vendedores é processado e a execução termina com sucesso parcial.
 
+## Execução com Docker
+
+O Docker empacota o Python, o Google Chrome e o ambiente gráfico virtual usados
+pelo Selenium. Assim, a automação executa da mesma forma em qualquer máquina
+que tenha Docker, sem instalar Python, Chrome ou ChromeDriver localmente.
+
+1. Crie o arquivo de configuração e preencha as credenciais:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+2. Construa a imagem e execute a automação:
+
+```powershell
+docker compose up --build
+```
+
+Os arquivos gerados continuam disponíveis na máquina anfitriã em `data/` e os
+logs em `logs/`, pois essas pastas são montadas no contêiner. A imagem não copia
+o `.env`; o Compose o injeta apenas durante a execução, evitando incluir
+credenciais na imagem. Arquivos de dados e testes também são excluídos da etapa
+de construção, reduzindo o tamanho enviado ao Docker sem afetar a execução.
+
+Por padrão, `ENABLE_VNC=false` executa o Chrome sem interface, que é o modo mais
+leve para rotina. Para acompanhar visualmente a automação, defina
+`ENABLE_VNC=true` e `HEADLESS=false` no `.env`, execute novamente e abra
+`http://localhost:7900` no navegador. O acesso VNC é destinado apenas ao uso
+local: não exponha essa porta em servidores públicos.
+
+Para encerrar e remover o contêiner após uma execução, use:
+
+```powershell
+docker compose down
+```
+
 ## Testes
 
 Os testes unitários usam dados fictícios e não acessam Selenium, 2Tech ou SharePoint.
