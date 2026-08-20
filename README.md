@@ -176,6 +176,44 @@ Para encerrar e remover o contêiner após uma execução, use:
 docker compose down
 ```
 
+## Agendamento semanal no Windows
+
+O projeto inclui `run_rpa.ps1`, que executa `docker compose run --rm rpa` e
+repassa o código de saída do contêiner ao Windows. Para instalar uma tarefa
+semanal, use `install_scheduled_task.ps1` em um PowerShell aberto como
+**Administrador**:
+
+```powershell
+.\install_scheduled_task.ps1
+```
+
+Informe a senha da conta Windows que já possui acesso ao Docker Desktop. O PIN
+do Windows Hello não serve para essa finalidade e a senha não é salva no
+projeto nem exibida nos logs.
+
+A tarefa é configurada para rodar toda segunda-feira às 15:00, com privilégios
+elevados, inicialização após um horário perdido, despertar do computador e
+bloqueio de execuções simultâneas. Em caso de falha na instalação, consulte
+`logs/scheduled_task_setup.log`.
+
+Antes de agendar a execução de produção, confirme no `.env`:
+
+```env
+ENABLE_VNC=false
+HEADLESS=true
+PRODUCAO_ENABLED=true
+SHAREPOINT_ENABLED=true
+```
+
+O Docker Desktop deve estar disponível para a mesma conta que executará a
+tarefa. Como o Docker Desktop normalmente é iniciado quando o usuário entra no
+Windows, valide o cenário após reinicialização antes de depender de execução
+sem usuário conectado. Para acompanhar uma execução, abra o Agendador de
+Tarefas, execute a tarefa manualmente e confira **Último resultado da
+execução**: `0x0` indica sucesso; qualquer outro valor indica falha. Os detalhes
+da automação permanecem em `logs/app.log` e as evidências de Selenium em
+`data/logs/erros/`.
+
 ## Testes
 
 Os testes unitários usam dados fictícios e não acessam Selenium, 2Tech ou SharePoint.
